@@ -1,0 +1,15 @@
+- Pundit
+- ActiveRecord
+  - cache
+  - relation
+  - sql format and excute
+  - trans
+- rails register
+- capistrano
+- rake
+- erb render
+- CarrierWave
+- ActiveModel::Serializers
+- sidekiq
+- guard
+- concurrent-ruby
