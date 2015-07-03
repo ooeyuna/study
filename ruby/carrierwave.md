@@ -1,0 +1,11 @@
+继续转载文章[gem 'carrierwave'简易实用介绍](https://ruby-china.org/topics/4992)
+
+最近没什么时间研究这东西的源码，不过却因为carrierwave的异步导致了一些棘手的问题，也从经验上了解了这个的大致实现。
+
+首先是官网并没有说清楚的，CarrierWave::Uploader::Base的子类有一个model方法（参数？）可以获得当前ActiveRecord::Model对象，允许在uploader里处理一些奇怪的逻辑。
+
+映射到uploader的字段是个string值，数据库里存放的是该图片的文件名，在new这个model的时候，carrierwave将该属性修改为image对象（所以该属性一定不为nil，必须要用field\_name?来判断是否该model包含图片），image对象里path为相对路径，url为绝对路径。路径的拼接交给了uploader里自己定义的store\_url方法，而在store\_url里可以写很多相对值，比如图片剪裁的比例、model的类型参数等，于是一个字段就能存储多张图片并根据拼接的路径返回不同比例的图片，确实是比直接存完整路径不知道高到哪里去。
+
+下午折腾的图片的bug情景是这样的，在对象save后需要触发一个after\_save事件，事件要求输出对象的所有属性包括图片的路径。上线后就有人来报bug说图片路径不对，我看了下路径是/upload/tmp/xxxxx，应该是图片在上传cdn前存放在服务器的临时路径，于是查了下资料，发现upload的事件是挂在after\_save后的，然后一拍脑袋把after\_save事件挪到after\_commit上了。因为时间紧迫，且情景的testcase想不通该怎么写，于是没有测试就上线了，（名为online debug）而事实上确实生效了，测试了2次发送正常，于是就把issue close掉了。过了一段时间同事又说这bug复现了，时好时坏。我的第一反应是生产环境不一致，（恰巧这时候运维超哥在调生产环境，确实有环境不一致的问题）于是没上心，继续围观超哥部署。结果后来超哥部署好了bug还是时不时地出现，我仔细想了一下，这种时而复现的bug还有另一种可能，异步！于是我把事件的触发机制改为无图触发after_save，有图在uploader的after :store，终于干掉了bug。
+
+对于这个类库的易用性我给10个赞，同时也很好奇这是怎么开发出这么优雅的文件上传解决方案的，留个坑有空研究吧。
